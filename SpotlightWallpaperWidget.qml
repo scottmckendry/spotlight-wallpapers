@@ -11,15 +11,26 @@ PluginComponent {
 
     layerNamespacePlugin: "spotlight-wallpaper"
 
-    readonly property string placement: "88000820"
+    readonly property string placement: "88000820" // Public subscription ID for Windows Spotlight
     readonly property string country: pluginData.country || "US"
     readonly property string locale: pluginData.locale || "en-US"
-    readonly property string wallpaperDir: pluginData.wallpaperDir || (Quickshell.env("HOME") + "/Pictures/Wallpapers/Spotlight")
+    // expand a leading ~ since curl won't
+    function expandPath(path) {
+        const home = Quickshell.env("HOME")
+        if (path === "~")
+            return home
+        if (path.startsWith("~/"))
+            return home + path.slice(1)
+        return path
+    }
+
+    readonly property string wallpaperDir: expandPath(pluginData.wallpaperDir || "~/Pictures/Wallpapers/Spotlight")
     readonly property string apiUrl: "https://fd.api.iris.microsoft.com/v4/api/selection?placement="
         + encodeURIComponent(placement) + "&country=" + encodeURIComponent(country)
         + "&locale=" + encodeURIComponent(locale) + "&fmt=json"
 
-    property string state: "idle"
+    // fetch lifecycle: "idle" | "fetching" | "downloading" | "ready" | "failed"
+    property string fetchState: "idle"
     property string title: "Windows Spotlight"
     property string description: ""
     property string copyright: ""
@@ -29,37 +40,56 @@ PluginComponent {
     property string errorText: ""
 
     property var savedMeta: ({})
+    property bool _initialised: false
 
-    function saveMeta(dest, meta) {
-        savedMeta[dest] = meta
+    function setDisplay(meta, dest) {
+        title = meta.title || "Windows Spotlight"
+        description = meta.description || ""
+        copyright = meta.copyright || ""
+        location = meta.location || ""
+        imageUrl = meta.imageUrl || ""
+        destination = dest
+        fetchState = "ready"
+    }
+
+    function resetDisplay() {
+        title = "Windows Spotlight"
+        description = ""
+        copyright = ""
+        location = ""
+        imageUrl = ""
+        destination = ""
+        errorText = ""
+        fetchState = "idle"
+    }
+
+    function saveMeta(dest) {
+        savedMeta[dest] = {
+            title: title,
+            description: description,
+            copyright: copyright,
+            location: location,
+            imageUrl: imageUrl
+        }
         pluginService?.savePluginState(pluginId, "wallpaperMeta", savedMeta)
     }
 
     function restoreMeta(dest) {
         const meta = savedMeta[dest]
-        if (meta) {
-            title = meta.title || "Windows Spotlight"
-            description = meta.description || ""
-            copyright = meta.copyright || ""
-            location = meta.location || ""
-            imageUrl = meta.imageUrl || ""
-            destination = dest
-            state = "ready"
-            return true
-        }
-        return false
+        if (!meta)
+            return false
+        setDisplay(meta, dest)
+        return true
     }
-
-    property bool _initialised: false
 
     function loadState() {
         if (_initialised || !pluginService)
             return
         _initialised = true
         savedMeta = pluginService.loadPluginState(pluginId, "wallpaperMeta", {}) || {}
-        if (SessionData.wallpaperPath && restoreMeta(SessionData.wallpaperPath))
-            return
-        destination = SessionData.wallpaperPath || ""
+        const path = SessionData.wallpaperPath
+        if (!(path && restoreMeta(path)))
+            destination = path || ""
     }
 
     onPluginServiceChanged: loadState()
@@ -71,29 +101,22 @@ PluginComponent {
             if (!_initialised)
                 return
             const path = SessionData.wallpaperPath
-            if (path && path !== destination && savedMeta[path]) {
-                restoreMeta(path)
-            } else if (path && path !== destination) {
-                title = "Windows Spotlight"
-                description = ""
-                copyright = ""
-                location = ""
-                imageUrl = ""
-                destination = ""
-                state = "idle"
-            }
+            if (path === destination)
+                return
+            if (!restoreMeta(path))
+                resetDisplay()
         }
     }
 
-    readonly property bool busy: state === "fetching" || state === "downloading"
+    readonly property bool busy: fetchState === "fetching" || fetchState === "downloading"
     readonly property string statusText: {
-        if (state === "fetching") return "Finding wallpaper…"
-        if (state === "downloading") return "Downloading…"
-        if (state === "failed") return errorText
+        if (fetchState === "fetching") return "Finding wallpaper…"
+        if (fetchState === "downloading") return "Downloading…"
+        if (fetchState === "failed") return errorText
         return location || "Get a new Windows Spotlight wallpaper"
     }
-    readonly property string iconName: state === "failed" ? "error" : busy ? "progress_activity" : "wallpaper"
-    readonly property color iconColor: state === "failed" ? Theme.error : busy ? Theme.primary : Theme.surfaceText
+    readonly property string iconName: fetchState === "failed" ? "error" : busy ? "progress_activity" : "wallpaper"
+    readonly property color iconColor: fetchState === "failed" ? Theme.error : busy ? Theme.primary : Theme.surfaceText
 
     function filenameFor(locationName) {
         const slug = locationName.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim().replace(/ +/g, "-")
@@ -104,7 +127,7 @@ PluginComponent {
         if (busy)
             return
 
-        state = "fetching"
+        fetchState = "fetching"
         errorText = ""
         const request = new XMLHttpRequest()
         request.open("GET", apiUrl)
@@ -112,15 +135,13 @@ PluginComponent {
             if (request.readyState !== XMLHttpRequest.DONE)
                 return
             if (request.status < 200 || request.status >= 300) {
-                root.state = "failed"
-                root.errorText = "Spotlight API returned " + request.status
+                root.fail("Spotlight API returned " + request.status)
                 return
             }
             try {
                 const ad = JSON.parse(request.responseText).ad
                 const url = ad?.landscapeImage?.asset ?? ""
-                const hoverText = ad?.iconHoverText ?? ""
-                const place = hoverText.split("\r\n")[0] || ad?.title || "Windows Spotlight"
+                const place = ad?.iconHoverText?.split("\r\n")[0] || ad?.title || "Windows Spotlight"
                 if (!url)
                     throw new Error("No landscape image returned")
                 root.title = ad?.title || "Windows Spotlight"
@@ -129,40 +150,36 @@ PluginComponent {
                 root.location = place
                 root.imageUrl = url
                 root.destination = root.wallpaperDir + "/" + root.filenameFor(place)
-                root.state = "downloading"
+                root.fetchState = "downloading"
                 downloadProcess.running = true
             } catch (error) {
-                root.state = "failed"
-                root.errorText = "Invalid Spotlight response: " + error.message
+                root.fail("Invalid Spotlight response: " + error.message)
             }
         }
         request.send()
     }
 
+    function fail(message) {
+        fetchState = "failed"
+        errorText = message
+    }
+
     function applyWallpaper() {
-        saveMeta(destination, {
-            title: title,
-            description: description,
-            copyright: copyright,
-            location: location,
-            imageUrl: imageUrl
-        })
+        saveMeta(destination)
         SessionData.setWallpaper(destination)
-        state = "ready"
+        fetchState = "ready"
         ToastService.showInfo("Spotlight Wallpaper", title + (location ? " — " + location : ""))
     }
 
     Process {
         id: downloadProcess
         command: ["curl", "--fail", "--location", "--silent", "--show-error", "--create-dirs",
-            "--user-agent", root.userAgent, "--output", root.destination, root.imageUrl]
+            "--output", root.destination, root.imageUrl]
         onExited: exitCode => {
-            if (exitCode === 0) {
+            if (exitCode === 0)
                 root.applyWallpaper()
-            } else {
-                root.state = "failed"
-                root.errorText = "Download failed (curl exit " + exitCode + ")"
-            }
+            else
+                root.fail("Download failed (curl exit " + exitCode + ")")
         }
     }
 
@@ -188,7 +205,7 @@ PluginComponent {
         PopoutComponent {
             id: popout
             headerText: root.title
-            detailsText: root.state === "failed" ? root.errorText : (root.location || "")
+            detailsText: root.fetchState === "failed" ? root.errorText : root.location
             showCloseButton: true
 
             Column {
@@ -228,15 +245,6 @@ PluginComponent {
                     iconName: root.busy ? "progress_activity" : "refresh"
                     enabled: !root.busy
                     onClicked: root.fetchWallpaper()
-                }
-
-                StyledText {
-                    width: parent.width
-                    visible: root.state === "failed"
-                    text: root.errorText
-                    color: Theme.error
-                    font.pixelSize: Theme.fontSizeSmall
-                    wrapMode: Text.WordWrap
                 }
             }
         }

@@ -20,11 +20,11 @@ unlink:
 
 # reload plugin at runtime (no DMS restart needed)
 reload:
-    dms ipc call plugins reload {{plugin_id}}
+    dms ipc plugin-scan reload {{plugin_id}}
 
 # list all plugins and their status
 list:
-    dms ipc call plugins list
+    dms ipc plugin-scan list
 
 # link + reload in one shot
 dev: link reload

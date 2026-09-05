@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/scottmckendry/spotlight-wallpapers/compare/v0.2.0...v0.2.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* follow dms naming convention ([5bb0eed](https://github.com/scottmckendry/spotlight-wallpapers/commit/5bb0eedc8d61393698ff11eddc25de1fc850c195))
+
 ## [0.2.0](https://github.com/scottmckendry/spotlight-wallpapers/compare/v0.1.0...v0.2.0) (2026-09-05)
 
 

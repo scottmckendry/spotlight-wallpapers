@@ -28,6 +28,63 @@ PluginComponent {
     property string destination: ""
     property string errorText: ""
 
+    property var savedMeta: ({})
+
+    function saveMeta(dest, meta) {
+        savedMeta[dest] = meta
+        pluginService?.savePluginState(pluginId, "wallpaperMeta", savedMeta)
+    }
+
+    function restoreMeta(dest) {
+        const meta = savedMeta[dest]
+        if (meta) {
+            title = meta.title || "Windows Spotlight"
+            description = meta.description || ""
+            copyright = meta.copyright || ""
+            location = meta.location || ""
+            imageUrl = meta.imageUrl || ""
+            destination = dest
+            state = "ready"
+            return true
+        }
+        return false
+    }
+
+    property bool _initialised: false
+
+    function loadState() {
+        if (_initialised || !pluginService)
+            return
+        _initialised = true
+        savedMeta = pluginService.loadPluginState(pluginId, "wallpaperMeta", {}) || {}
+        if (SessionData.wallpaperPath && restoreMeta(SessionData.wallpaperPath))
+            return
+        destination = SessionData.wallpaperPath || ""
+    }
+
+    onPluginServiceChanged: loadState()
+    Component.onCompleted: loadState()
+
+    Connections {
+        target: SessionData
+        function onWallpaperPathChanged() {
+            if (!_initialised)
+                return
+            const path = SessionData.wallpaperPath
+            if (path && path !== destination && savedMeta[path]) {
+                restoreMeta(path)
+            } else if (path && path !== destination) {
+                title = "Windows Spotlight"
+                description = ""
+                copyright = ""
+                location = ""
+                imageUrl = ""
+                destination = ""
+                state = "idle"
+            }
+        }
+    }
+
     readonly property bool busy: state === "fetching" || state === "downloading"
     readonly property string statusText: {
         if (state === "fetching") return "Finding wallpaper…"
@@ -83,6 +140,13 @@ PluginComponent {
     }
 
     function applyWallpaper() {
+        saveMeta(destination, {
+            title: title,
+            description: description,
+            copyright: copyright,
+            location: location,
+            imageUrl: imageUrl
+        })
         SessionData.setWallpaper(destination)
         state = "ready"
         ToastService.showInfo("Spotlight Wallpaper", title + (location ? " — " + location : ""))

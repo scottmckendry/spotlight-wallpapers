@@ -11,7 +11,8 @@ default:
 
 # symlink plugin into DMS plugins dir for live dev
 link:
-    ln -sf {{repo_dir}} {{plugin_dir}}
+    rm -rf {{plugin_dir}}
+    ln -s {{repo_dir}} {{plugin_dir}}
 
 # remove symlink
 unlink:

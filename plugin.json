@@ -1,5 +1,5 @@
 {
-  "id": "spotlight-wallpapers",
+  "id": "spotlightWallpapers",
   "name": "Spotlight Wallpapers",
   "description": "Fetch and apply Windows Spotlight wallpapers from DankBar",
   "version": "0.1.0",

@@ -5,7 +5,7 @@ import qs.Widgets
 
 PluginSettings {
     id: root
-    pluginId: "spotlight-wallpapers"
+    pluginId: "spotlightWallpapers"
 
     StringSetting {
         settingKey: "country"

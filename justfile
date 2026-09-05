@@ -1,8 +1,8 @@
 # Spotlight Wallpaper - Dev Commands
 # https://danklinux.com/docs/dankmaterialshell/plugin-development#live-development
 
-plugin_id := "spotlight-wallpapers"
-plugin_dir := "~/.config/DankMaterialShell/plugins/spotlight-wallpapers"
+plugin_id := "spotlightWallpapers"
+plugin_dir := "~/.config/DankMaterialShell/plugins/spotlightWallpapers"
 repo_dir := justfile_directory()
 
 # default: list available commands

@@ -2,14 +2,23 @@
   "id": "spotlightWallpapers",
   "name": "Spotlight Wallpapers",
   "description": "Fetch and apply Windows Spotlight wallpapers from DankBar",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": "scottmckendry",
   "icon": "wallpaper",
   "type": "widget",
-  "capabilities": ["dankbar-widget"],
+  "capabilities": [
+    "dankbar-widget"
+  ],
   "component": "./SpotlightWallpaperWidget.qml",
   "settings": "./SpotlightWallpaperSettings.qml",
   "startupCheck": "./StartupCheck.qml",
-  "dependencies": ["curl"],
-  "permissions": ["settings_read", "settings_write", "process", "network"]
+  "dependencies": [
+    "curl"
+  ],
+  "permissions": [
+    "settings_read",
+    "settings_write",
+    "process",
+    "network"
+  ]
 }

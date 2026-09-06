@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/scottmckendry/spotlight-wallpapers/compare/v0.2.2...v0.2.3) (2026-09-06)
+
+
+### Bug Fixes
+
+* animated busy icon ([7c133db](https://github.com/scottmckendry/spotlight-wallpapers/commit/7c133db4f31174a552f2cf625c81690173e48084))
+
 ## [0.2.2](https://github.com/scottmckendry/spotlight-wallpapers/compare/v0.2.1...v0.2.2) (2026-09-06)
 
 

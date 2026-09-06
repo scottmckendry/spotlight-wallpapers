@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/scottmckendry/spotlight-wallpapers/compare/v0.2.1...v0.2.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* in-tree screenshot ([51847e5](https://github.com/scottmckendry/spotlight-wallpapers/commit/51847e5452254f2add5ac0e0133ad4092564ecad))
+* plugin.json version updates ([a8530bc](https://github.com/scottmckendry/spotlight-wallpapers/commit/a8530bc45a22fa25384c3a9a347ac7c167c63084))
+
 ## [0.2.1](https://github.com/scottmckendry/spotlight-wallpapers/compare/v0.2.0...v0.2.1) (2026-09-05)
 
 

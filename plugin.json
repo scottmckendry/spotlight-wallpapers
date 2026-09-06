@@ -2,7 +2,7 @@
   "id": "spotlightWallpapers",
   "name": "Spotlight Wallpapers",
   "description": "Fetch and apply Windows Spotlight wallpapers from DankBar",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "author": "scottmckendry",
   "icon": "wallpaper",
   "type": "widget",

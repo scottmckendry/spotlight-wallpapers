@@ -184,20 +184,60 @@ PluginComponent {
     }
 
     horizontalBarPill: Component {
-        DankIcon {
-            name: root.iconName
-            size: root.iconSize
-            color: root.iconColor
+        Item {
+            implicitWidth: root.iconSize
+            implicitHeight: root.iconSize
             anchors.verticalCenter: parent.verticalCenter
+
+            DankIcon {
+                id: hIcon
+                name: root.iconName
+                size: root.iconSize
+                color: root.iconColor
+                anchors.centerIn: parent
+                Behavior on rotation { NumberAnimation { duration: 200 } }
+            }
+            RotationAnimation {
+                target: hIcon
+                running: root.busy
+                from: 0
+                to: 360
+                duration: 1000
+                loops: Animation.Infinite
+            }
+            states: State {
+                when: !root.busy
+                PropertyChanges { hIcon.rotation: 0 }
+            }
         }
     }
 
     verticalBarPill: Component {
-        DankIcon {
-            name: root.iconName
-            size: root.iconSize
-            color: root.iconColor
+        Item {
+            implicitWidth: root.iconSize
+            implicitHeight: root.iconSize
             anchors.horizontalCenter: parent.horizontalCenter
+
+            DankIcon {
+                id: vIcon
+                name: root.iconName
+                size: root.iconSize
+                color: root.iconColor
+                anchors.centerIn: parent
+                Behavior on rotation { NumberAnimation { duration: 200 } }
+            }
+            RotationAnimation {
+                target: vIcon
+                running: root.busy
+                from: 0
+                to: 360
+                duration: 1000
+                loops: Animation.Infinite
+            }
+            states: State {
+                when: !root.busy
+                PropertyChanges { vIcon.rotation: 0 }
+            }
         }
     }
 
@@ -242,7 +282,7 @@ PluginComponent {
                 DankButton {
                     width: parent.width
                     text: root.busy ? root.statusText : "Fetch New Wallpaper"
-                    iconName: root.busy ? "progress_activity" : "refresh"
+                    iconName: root.busy ? "hourglass_empty" : "refresh"
                     enabled: !root.busy
                     onClicked: root.fetchWallpaper()
                 }

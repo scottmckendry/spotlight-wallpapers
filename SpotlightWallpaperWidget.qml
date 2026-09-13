@@ -150,6 +150,13 @@ PluginComponent {
         return seenUrls.indexOf(url) !== -1
     }
 
+    // asset URLs end in _<width>x<height>.jpg — e.g. ..._3840x2160.jpg
+    // strict: URLs without parseable dimensions are rejected too
+    function isMin4k(url) {
+        const match = url.match(/_(\d+)x(\d+)\.(?:jpg|jpeg|png)$/i)
+        return !!match && (parseInt(match[1], 10) >= 3840 || parseInt(match[2], 10) >= 2160)
+    }
+
     // normalise response to a list of ad objects; handles both shapes:
     //   {"ad": {...}}
     //   {"batchrsp": {"items": [{"item": "<json string containing ad>"}]}}
@@ -172,7 +179,7 @@ PluginComponent {
 
     function isEligible(ad) {
         const url = ad?.landscapeImage?.asset ?? ""
-        return url && !isSeen(url)
+        return url && !isSeen(url) && isMin4k(url)
     }
 
     function fetchWallpaper() {
@@ -203,7 +210,7 @@ PluginComponent {
                 root.fail("Invalid Spotlight response: " + error.message)
                 return
             }
-            // pick first unseen wallpaper from the batch
+            // pick first unseen 4K+ wallpaper from the batch
             let chosen = null
             for (let i = 0; i < ads.length; i++) {
                 if (isEligible(ads[i])) {
@@ -212,7 +219,7 @@ PluginComponent {
                 }
             }
             if (!chosen) {
-                // whole batch seen — rotate country and ask again
+                // whole batch seen or below 4K — rotate country and ask again
                 if (_retryCount < maxRetries) {
                     const nextCountry = countries[_retryCount % countries.length]
                     _retryCount++
@@ -220,7 +227,7 @@ PluginComponent {
                     request.send()
                 } else {
                     _retryCount = 0
-                    root.fail("No new wallpaper available (tried " + maxRetries + " batches)")
+                    root.fail("No new 4K wallpaper available (tried " + maxRetries + " batches)")
                 }
                 return
             }

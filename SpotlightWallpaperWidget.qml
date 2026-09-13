@@ -25,9 +25,13 @@ PluginComponent {
     }
 
     readonly property string wallpaperDir: expandPath(pluginData.wallpaperDir || "~/Pictures/Wallpapers/Spotlight")
-    readonly property string apiUrl: "https://fd.api.iris.microsoft.com/v4/api/selection?placement="
-        + encodeURIComponent(placement) + "&country=" + encodeURIComponent(country)
-        + "&locale=" + encodeURIComponent(locale) + "&fmt=json"
+    readonly property var countries: [country, "US", "GB", "DE", "JP", "AU", "FR", "IN", "CA", "BR"]
+
+    function apiUrlFor(countryCode) {
+        return "https://fd.api.iris.microsoft.com/v4/api/selection?placement="
+            + encodeURIComponent(placement) + "&bcnt=4&country=" + encodeURIComponent(countryCode)
+            + "&locale=" + encodeURIComponent(locale) + "&fmt=json"
+    }
 
     // fetch lifecycle: "idle" | "fetching" | "downloading" | "ready" | "failed"
     property string fetchState: "idle"
@@ -40,6 +44,10 @@ PluginComponent {
     property string errorText: ""
 
     property var savedMeta: ({})
+    property var seenUrls: ([])
+    readonly property int maxSeen: 200
+    readonly property int maxRetries: 5
+    property int _retryCount: 0
     property bool _initialised: false
 
     function setDisplay(meta, dest) {
@@ -87,6 +95,13 @@ PluginComponent {
             return
         _initialised = true
         savedMeta = pluginService.loadPluginState(pluginId, "wallpaperMeta", {}) || {}
+        seenUrls = pluginService.loadPluginState(pluginId, "seenUrls", []) || []
+        // backfill: wallpapers applied before URL tracking existed
+        for (const dest in savedMeta) {
+            const url = savedMeta[dest].imageUrl
+            if (url && seenUrls.indexOf(url) === -1)
+                seenUrls.push(url)
+        }
         const path = SessionData.wallpaperPath
         if (!(path && restoreMeta(path)))
             destination = path || ""
@@ -123,6 +138,43 @@ PluginComponent {
         return (slug || "spotlight-" + Date.now()) + ".jpg"
     }
 
+    function markSeen(url) {
+        seenUrls.push(url)
+        // keep list bounded; drop oldest
+        while (seenUrls.length > maxSeen)
+            seenUrls.shift()
+        pluginService?.savePluginState(pluginId, "seenUrls", seenUrls)
+    }
+
+    function isSeen(url) {
+        return seenUrls.indexOf(url) !== -1
+    }
+
+    // normalise response to a list of ad objects; handles both shapes:
+    //   {"ad": {...}}
+    //   {"batchrsp": {"items": [{"item": "<json string containing ad>"}]}}
+    function parseAds(text) {
+        const root = JSON.parse(text)
+        if (root.batchrsp?.items) {
+            const ads = []
+            for (let i = 0; i < root.batchrsp.items.length; i++) {
+                const item = root.batchrsp.items[i].item
+                if (typeof item !== "string")
+                    continue
+                const ad = JSON.parse(item).ad
+                if (ad)
+                    ads.push(ad)
+            }
+            return ads
+        }
+        return root.ad ? [root.ad] : []
+    }
+
+    function isEligible(ad) {
+        const url = ad?.landscapeImage?.asset ?? ""
+        return url && !isSeen(url)
+    }
+
     function fetchWallpaper() {
         if (busy)
             return
@@ -130,7 +182,7 @@ PluginComponent {
         fetchState = "fetching"
         errorText = ""
         const request = new XMLHttpRequest()
-        request.open("GET", apiUrl)
+        request.open("GET", apiUrlFor(countries[0]))
         request.onreadystatechange = function() {
             if (request.readyState !== XMLHttpRequest.DONE)
                 return
@@ -138,23 +190,52 @@ PluginComponent {
                 root.fail("Spotlight API returned " + request.status)
                 return
             }
+            let ads = []
             try {
-                const ad = JSON.parse(request.responseText).ad
-                const url = ad?.landscapeImage?.asset ?? ""
-                const place = ad?.iconHoverText?.split("\r\n")[0] || ad?.title || "Windows Spotlight"
-                if (!url)
-                    throw new Error("No landscape image returned")
-                root.title = ad?.title || "Windows Spotlight"
-                root.description = ad?.description || ""
-                root.copyright = ad?.copyright || ""
-                root.location = place
-                root.imageUrl = url
-                root.destination = root.wallpaperDir + "/" + root.filenameFor(place)
-                root.fetchState = "downloading"
-                downloadProcess.running = true
+                ads = parseAds(request.responseText)
+                if (ads.length === 0) {
+                    const resp = JSON.parse(request.responseText)
+                    const errMsg = resp?.batchrsp?.errors?.[0]?.msg
+                    root.fail(errMsg ? "Spotlight API error: " + errMsg : "No wallpapers returned")
+                    return
+                }
             } catch (error) {
                 root.fail("Invalid Spotlight response: " + error.message)
+                return
             }
+            // pick first unseen wallpaper from the batch
+            let chosen = null
+            for (let i = 0; i < ads.length; i++) {
+                if (isEligible(ads[i])) {
+                    chosen = ads[i]
+                    break
+                }
+            }
+            if (!chosen) {
+                // whole batch seen — rotate country and ask again
+                if (_retryCount < maxRetries) {
+                    const nextCountry = countries[_retryCount % countries.length]
+                    _retryCount++
+                    request.open("GET", apiUrlFor(nextCountry) + "&r=" + Date.now())
+                    request.send()
+                } else {
+                    _retryCount = 0
+                    root.fail("No new wallpaper available (tried " + maxRetries + " batches)")
+                }
+                return
+            }
+            _retryCount = 0
+            const ad = chosen
+            const url = ad.landscapeImage.asset
+            const place = ad?.iconHoverText?.split("\r\n")[0] || ad?.title || "Windows Spotlight"
+            root.title = ad?.title || "Windows Spotlight"
+            root.description = ad?.description || ""
+            root.copyright = ad?.copyright || ""
+            root.location = place
+            root.imageUrl = url
+            root.destination = root.wallpaperDir + "/" + root.filenameFor(place)
+            root.fetchState = "downloading"
+            downloadProcess.running = true
         }
         request.send()
     }
@@ -165,6 +246,7 @@ PluginComponent {
     }
 
     function applyWallpaper() {
+        markSeen(imageUrl)
         saveMeta(destination)
         SessionData.setWallpaper(destination)
         fetchState = "ready"

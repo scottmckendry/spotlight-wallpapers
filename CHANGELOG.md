@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/scottmckendry/spotlight-wallpapers/compare/v0.2.2...v0.3.0) (2026-09-13)
+
+
+### Features
+
+* only fetch 4K wallpapers ([4aa662d](https://github.com/scottmckendry/spotlight-wallpapers/commit/4aa662dde40601f366f8a48e43a4a1340f30da6c))
+* prevent repeat wallpapers ([324156f](https://github.com/scottmckendry/spotlight-wallpapers/commit/324156f88582ad85b55a923b6669cabeabbdbeec))
+
+
+### Bug Fixes
+
+* animated busy icon ([7c133db](https://github.com/scottmckendry/spotlight-wallpapers/commit/7c133db4f31174a552f2cf625c81690173e48084))
+
 ## [0.2.2](https://github.com/scottmckendry/spotlight-wallpapers/compare/v0.2.1...v0.2.2) (2026-09-06)
 
 
